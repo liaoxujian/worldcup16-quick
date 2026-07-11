@@ -1,0 +1,12 @@
+{
+  "name": "\u4e16\u754c\u676f16\u5f3a\u901f\u67e5",
+  "short_name": "\u4e16\u754c\u676f\u901f\u67e5",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#F4F7F7",
+  "theme_color": "#123F50",
+  "lang": "zh-CN",
+  "icons": [
+    {"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}
+  ]
+}
