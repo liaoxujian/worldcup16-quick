@@ -519,6 +519,10 @@ const HK_NAMES = {
 };
 
 /* 球衣识别色（传统主色，供进球者色点） */
+const MANDARIN_OVERRIDES = {
+  "trevohchalobah":"\u67e5\u6d1b\u5df4"
+};
+
 const KIT = {
   89:["#C8102E","#1F2A63"], 90:["#C1272D","#C1272D"], 91:["#FFCC00","#C8102E"],
   92:["#046A38","#FFFFFF"], 93:["#7A1F2B","#C60B1E"], 94:["#FFFFFF","#E3342F"],
@@ -591,6 +595,19 @@ async function zhName(en){
     ZH_CACHE[en] = name;
     return name;
   }catch(e){ ZH_CACHE[en] = null; return null; }
+}
+
+const ZH_SEARCH_CACHE = {};
+async function zhSearchName(en){
+  if(!en) return null;
+  if(en in ZH_SEARCH_CACHE) return ZH_SEARCH_CACHE[en];
+  try{
+    const url = `https://www.wikidata.org/w/api.php?action=wbsearchentities&format=json&origin=*&language=zh&limit=1&search=${encodeURIComponent(en)}`;
+    const res = await fetch(url);
+    const name = res.ok ? ((await res.json()).search||[])[0]?.label || null : null;
+    ZH_SEARCH_CACHE[en] = name;
+    return name;
+  }catch(_){ ZH_SEARCH_CACHE[en] = null; return null; }
 }
 
 /* ===== 自动进球/红牌时间轴（ESPN summary接口） ===== */
@@ -1030,44 +1047,96 @@ function playerRow(p){
   return `<div class="p-row"><span class="p-num">${p.num||""}</span><span>${p.name}</span>${p.note?`<span class="p-note">${p.note}</span>`:""}</div>`;
 }
 
+/* Current player lists are loaded from ESPN's match-summary rosters, not a stale
+   hand-maintained card list. The local table remains only for verified context. */
+const KNOWN_ESPN_IDS = {97:"760510",98:"760511",99:"760512",100:"760513"};
+const ROSTER_CACHE = new Map();
+
+function esc(s){
+  return String(s||"").replace(/[&<>'"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;","\"":"&quot;"}[ch]));
+}
+
+function currentPlayerMatches(){
+  const now = Date.now();
+  return QF.filter(m=>m.status!=="done" || now-new Date(m.utc)<72*3600*1000)
+    .sort((a,b)=>statusRank(a.status)-statusRank(b.status) || new Date(a.utc)-new Date(b.utc));
+}
+
+async function rosterDisplayName(en){
+  const local = hkDict(en);
+  if(local) return local;
+  const manual = MANDARIN_OVERRIDES[asciiName(en)];
+  if(manual) return manual;
+  return await yueName(en) || await zhName(en) || await zhSearchName(en) || en;
+}
+
+function rosterTeamForMatch(m, teamName){
+  const key = asciiName(teamName);
+  if(key && (asciiName(m.a.en).includes(key) || key.includes(asciiName(m.a.en)))) return {side:"a",name:m.a.n};
+  if(key && (asciiName(m.b.en).includes(key) || key.includes(asciiName(m.b.en)))) return {side:"b",name:m.b.n};
+  return {side:"",name:teamName||""};
+}
+
+async function loadRoster(m, target){
+  const eventId = m.espnId || KNOWN_ESPN_IDS[m.id];
+  if(!eventId){
+    target.innerHTML = `<div class="detail-empty">\u6b63\u5728\u7b49\u5f85 ESPN \u767c\u5e03\u9019\u5834\u7684\u6bd4\u8cfd\u540d\u55ae\u3002</div>`;
+    return;
+  }
+  try{
+    let data = ROSTER_CACHE.get(eventId);
+    if(!data){
+      const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/summary?event=${encodeURIComponent(eventId)}`,{cache:"no-store"});
+      if(!res.ok) throw new Error("HTTP "+res.status);
+      data = await res.json();
+      ROSTER_CACHE.set(eventId,data);
+    }
+    const groups = data.rosters || [];
+    if(!groups.length) throw new Error("No rosters");
+    const chunks = [];
+    for(const group of groups){
+      const team = rosterTeamForMatch(m,group.team?.displayName||"");
+      const roster = (group.roster||[]).filter(p=>p.athlete?.displayName);
+      const rows = [];
+      for(const p of roster){
+        const label = await rosterDisplayName(p.athlete.displayName);
+        const number = p.jersey ? "#"+p.jersey : "";
+        const role = p.starter ? "\u6b63\u9078" : "";
+        rows.push(`<div class="p-row"><span class="p-num">${esc(number)}</span><span>${esc(label)}</span>${role?`<span class="p-note">${role}</span>`:""}</div>`);
+      }
+      chunks.push(`<div class="sq-title">${esc(team.name)} \u7403\u54e1\u540d\u55ae</div>${rows.join("")}`);
+    }
+    const info = PLAYER_INTEL.find(x=>x.id===m.id);
+    const context = info?.h2h ? `<div class="h2h">${info.h2h}</div>` : "";
+    const links = PLAYER_LINKS.map(l=>`<a href="${l.href}" target="_blank" rel="noopener">${l.label}</a>`).join("");
+    target.innerHTML = `<div class="kit-line"><span>\u540d\u55ae\u4f86\u6e90\uff1aESPN \u8cfd\u4e8b\u6458\u8981</span><span>\u6e2f\u8b6f\u512a\u5148</span></div>${chunks.join("")}${context}<div class="intel-links">${links}</div>`;
+  }catch(_){
+    target.innerHTML = `<div class="detail-empty">\u672c\u5834\u5b98\u65b9\u540d\u55ae\u66ab\u672a\u80fd\u8f09\u5165\u3002\u6bd4\u5206\u8207\u8cfd\u7a0b\u4e0d\u53d7\u5f71\u97ff\uff0c\u91cd\u65b0\u6574\u7406\u7db2\u8def\u5f8c\u518d\u6253\u958b\u672c\u5361\u5373\u53ef\u91cd\u8a66\u3002</div>`;
+  }
+}
+
 function renderPlayers(){
   const box = document.getElementById("players-list");
   if(!box) return;
-  const cards = PLAYER_INTEL
-    .map(info=>({info, match:getMatchById(info.id)}))
-    .filter(x=>x.match)
-    .sort((x,y)=>{
-      const r = statusRank(x.match.status) - statusRank(y.match.status);
-      return r || (new Date(x.match.utc) - new Date(y.match.utc));
-    });
-
-  box.innerHTML = cards.map(({info, match:m})=>{
+  const cards = currentPlayerMatches();
+  box.innerHTML = cards.map(m=>{
     const pinned = m.status==="live";
-    const coaches = info.coaches.map(([team,name])=>
-      `<div class="p-row"><span class="p-num"></span><span>${team}：${name}</span></div>`).join("");
-    const players = info.players.map(group=>
-      `<div class="sq-title">${group.team}重点球员</div>${group.list.map(playerRow).join("")}`).join("");
-    const links = PLAYER_LINKS.map(l=>
-      `<a href="${l.href}" target="_blank" rel="noopener">${l.label}</a>`).join("");
-    return `
-    <details class="intel ${pinned?"pin":""}" ${pinned?"open":""}>
+    return `<details class="intel ${pinned?"pin":""}" data-roster-match="${m.id}" ${pinned?"open":""}>
       <summary>
         <span class="sum">
           <span>${m.a.f} ${m.a.n} vs ${m.b.f} ${m.b.n}${pinned?`<span class="pin-tag">LIVE</span>`:""}</span>
-          <span class="sum-sub">第${m.id}场 · ${intelSubLine(m)}</span>
+          <span class="sum-sub">\u7b2c${m.id}\u5834 \u00b7 ${intelSubLine(m)}</span>
         </span>
-        <span class="arr">▶</span>
+        <span class="arr">&#9654;</span>
       </summary>
-      <div class="body">
-        <div class="kit-line"><span>${info.kits[0]}</span><span>${info.kits[1]}</span></div>
-        <div class="sq-title">双方教练</div>
-        ${coaches}
-        ${players}
-        <div class="h2h">${info.h2h}</div>
-        <div class="intel-links">${links}</div>
-      </div>
+      <div class="body"><div class="detail-empty">\u6253\u958b\u5f8c\u8f09\u5165\u672c\u5834\u7684\u5b98\u65b9\u540d\u55ae\u3002</div></div>
     </details>`;
   }).join("");
+  box.querySelectorAll("details[data-roster-match]").forEach(el=>{
+    const load = ()=>{ if(el.open) loadRoster(getMatchById(Number(el.dataset.rosterMatch)),el.querySelector(".body")); };
+    el.addEventListener("toggle",load);
+    load();
+  });
 }
 
 /* ============ Match details ============ */
