@@ -5,9 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#123F50">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
 <title>世界杯16强速查</title>
 <style>
 :root{
@@ -340,7 +337,7 @@ footer{font-size:11px;color:var(--muted);}
 <div class="page active" id="page-schedule">
   <div class="toolbar">
     <div class="tool-btn" id="btn-refresh"><span class="ico">🔄</span>刷新比分</div>
-    <div class="tool-btn" id="btn-hide"><span class="ico">👁</span>隐藏已完场</div>
+    <div class="tool-btn on" id="btn-hide"><span class="ico">👁</span>显示全部场次</div>
   </div>
   <div class="toast" id="toast"></div>
   <div id="schedule-list"></div>
@@ -370,12 +367,6 @@ footer{font-size:11px;color:var(--muted);}
   已结束场次为最终比分 · 未开赛时间为官方原定开球时间<br>
   时区换算自动完成，无惧手机自动跳时区
 </footer>
-
-<script>
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js"));
-}
-</script>
 
 <script>
 /* ============ 数据区（更新战况只需改这里） ============ */
@@ -417,12 +408,12 @@ const QF = [
    timeline:'<span class="kd" style="background:#1F2A63"></span>麥巴比 #10 60&#39;，<span class="kd" style="background:#1F2A63"></span>迪比利 66&#39;',
    note:"法国2-0晉級半决赛"},
   {id:98, utc:"2026-07-10T19:00:00Z", venue:"洛杉矶 · SoFi球场",
-   a:{f:"🇪🇸",n:"西班牙",en:"Spain",s:null}, b:{f:"🇧🇪",n:"比利时",en:"Belgium",s:null}, win:null, status:"wait", tbd:false,
-   note:"就在洛杉矶！"},
+   a:{f:"🇪🇸",n:"西班牙",en:"Spain",s:2}, b:{f:"🇧🇪",n:"比利时",en:"Belgium",s:1}, win:"a", status:"done", tbd:false, espnId:"760511",
+   note:"西班牙2-1晉級半决赛"},
   {id:99, utc:"2026-07-11T21:00:00Z", venue:"迈阿密 · 硬石球场",
-   a:{f:"🇳🇴",n:"挪威",en:"Norway",s:null}, b:{f:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",n:"英格兰",en:"England",s:null}, win:null, status:"wait", tbd:false, note:""},
+   a:{f:"🇳🇴",n:"挪威",en:"Norway",s:1}, b:{f:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",n:"英格兰",en:"England",s:2}, win:"b", status:"done", tbd:false, espnId:"760512", note:"英格兰2-1晉級半决赛"},
   {id:100, utc:"2026-07-12T01:00:00Z", venue:"堪萨斯城 · 箭头球场",
-   a:{f:"🇦🇷",n:"阿根廷",en:"Argentina",s:null}, b:{f:"🇨🇭",n:"瑞士",en:"Switzerland",s:null}, win:null, status:"wait", tbd:false, note:"美斯 vs 瑞士鐵桶陣"},
+   a:{f:"🇦🇷",n:"阿根廷",en:"Argentina",s:3}, b:{f:"🇨🇭",n:"瑞士",en:"Switzerland",s:1}, win:"a", status:"done", tbd:false, espnId:"760513", note:"阿根廷3-1晉級半决赛"},
 ];
 
 /* 胜者晋级槽位映射：16强 → 1/4决赛 → 半决赛 → 决赛 */
@@ -431,6 +422,7 @@ const PROMOTE = {
   97:["SF1","a"], 98:["SF1","b"], 99:["SF2","a"], 100:["SF2","b"],
   "SF1":["F","a"], "SF2":["F","b"]
 };
+const PROMOTE_LOSER = {"SF1":["B","a"], "SF2":["B","b"]};
 
 /* ===== 港译名字典（来源：HK01/星島/點新聞实际用法，键为英文名小写去音标） ===== */
 const HK_NAMES = {
@@ -684,10 +676,12 @@ async function buildTimeline(m){
 }
 
 const LATER = [
-  {id:"SF1", name:"半决赛①", utc:"2026-07-14T19:00:00Z", venue:"达拉斯", desc:"97胜者 vs 98胜者",
-   a:{f:"❔",n:"97胜者",s:null}, b:{f:"❔",n:"98胜者",s:null}, win:null, status:"wait", tbd:true, note:""},
-  {id:"SF2", name:"半决赛②", utc:"2026-07-15T19:00:00Z", venue:"亚特兰大", desc:"99胜者 vs 100胜者",
-   a:{f:"❔",n:"99胜者",s:null}, b:{f:"❔",n:"100胜者",s:null}, win:null, status:"wait", tbd:true, note:""},
+  {id:"SF1", name:"半决赛①", utc:"2026-07-14T19:00:00Z", venue:"达拉斯", desc:"法国 vs 西班牙",
+   a:{f:"🇫🇷",n:"法国",en:"France",s:null}, b:{f:"🇪🇸",n:"西班牙",en:"Spain",s:null}, win:null, status:"wait", tbd:false, note:""},
+  {id:"SF2", name:"半决赛②", utc:"2026-07-15T19:00:00Z", venue:"亚特兰大", desc:"英格兰 vs 阿根廷",
+   a:{f:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",n:"英格兰",en:"England",s:null}, b:{f:"🇦🇷",n:"阿根廷",en:"Argentina",s:null}, win:null, status:"wait", tbd:false, note:""},
+  {id:"B", name:"季军战", utc:"2026-07-18T21:00:00Z", venue:"迈阿密 · 硬石球场", desc:"半决赛①负者 vs 半决赛②负者",
+   a:{f:"❔",n:"半决赛①负者",s:null}, b:{f:"❔",n:"半决赛②负者",s:null}, win:null, status:"wait", tbd:true, note:""},
   {id:"F", name:"决赛", utc:"2026-07-19T19:00:00Z", venue:"新泽西 · 大都会人寿球场", desc:"7月19日 冠军之夜", final:true,
    a:{f:"❔",n:"半决赛①胜者",s:null}, b:{f:"❔",n:"半决赛②胜者",s:null}, win:null, status:"wait", tbd:true, note:""},
 ];
@@ -812,7 +806,7 @@ const VENUE_TZ = {
   92:"America/Mexico_City", 93:"America/Chicago", 94:"America/Los_Angeles",
   95:"America/New_York", 96:"America/Vancouver",
   97:"America/New_York", 98:"America/Los_Angeles", 99:"America/New_York", 100:"America/Chicago",
-  "SF1":"America/Chicago", "SF2":"America/New_York", "F":"America/New_York",
+  "SF1":"America/Chicago", "SF2":"America/New_York", "B":"America/New_York", "F":"America/New_York",
 };
 
 /* ============ 实时时钟 ============ */
@@ -855,7 +849,7 @@ function pensBlock(m){
 }
 
 /* ============ 渲染赛程 ============ */
-let hideDone = false;
+let hideDone = true;
 
 function renderSchedule(){
   const box = document.getElementById("schedule-list");
@@ -864,13 +858,13 @@ function renderSchedule(){
   const all = [
     ...R16.map(m=>({...m,round:"16强 · 第"+m.id+"场"})),
     ...QF.map(m=>({...m,round:"1/4决赛 · 第"+m.id+"场"})),
+    ...LATER.map(m=>({...m,round:m.name})),
   ];
   all.sort((x,y)=>new Date(x.utc)-new Date(y.utc));
 
   let hidden = 0;
-  const KEEP_MS = 48*3600*1000; /* 隐藏完场时，48小时内的仍保留显示 */
   for(const m of all){
-    if(hideDone && m.status==="done" && (Date.now() - new Date(m.utc)) > KEEP_MS){ hidden++; continue; }
+    if(hideDone && m.status==="done"){ hidden++; continue; }
     const dayLA = fmt(m.utc, LA).split(" ")[0];
     if(dayLA !== lastDay){
       html += `<div class="day-label">${dayLA} · 洛杉矶日期</div>`;
@@ -896,7 +890,7 @@ function renderSchedule(){
       : "";
 
     html += `
-    <div class="match" data-match-id="${m.id}" data-utc="${m.utc}" data-status="${m.status}" role="button" tabindex="0" aria-label="Open match details">
+    <div class="match" ${m.final?'style="border:2px solid var(--gold)"':""} data-match-id="${m.id}" data-utc="${m.utc}" data-status="${m.status}" role="button" tabindex="0" aria-label="Open match details">
       <div class="m-top">
         <span class="m-round">${m.round}</span>
         <span class="m-status ${stCls}">${stTxt}</span>
@@ -920,25 +914,7 @@ function renderSchedule(){
   }
 
   if(hidden>0){
-    html = `<div class="hint" style="margin:2px 0 8px">已隐藏 ${hidden} 场完场比赛（保留最近48小时）· 再点一次恢复</div>` + html;
-  }
-
-  /* 半决赛与决赛预告 */
-  html += `<div class="day-label">后续赛程预告</div>`;
-  for(const g of LATER){
-    html += `
-    <div class="match" ${g.final?'style="border:2px solid var(--gold)"':""}>
-      <div class="m-top">
-        <span class="m-round">${g.name} · ${g.a.n} vs ${g.b.n}</span>
-        <span class="m-status st-wait">待定</span>
-      </div>
-      <div class="m-times">
-        <div class="tz">🇺🇸 洛杉矶<b>${fmt(g.utc,LA)}</b></div>
-        <div class="tz">🇸🇬 新加坡<b>${fmt(g.utc,SG)}</b></div>
-        ${VENUE_TZ[g.id]?`<div class="tz">📍 場館當地<b>${fmt(g.utc,VENUE_TZ[g.id])}</b></div>`:""}
-      </div>
-      <div class="m-venue">📍 ${g.venue}</div>
-    </div>`;
+    html = `<div class="hint" style="margin:2px 0 8px">已隐藏 ${hidden} 场已完场比赛 · 点“显示全部场次”可查看完整赛程</div>` + html;
   }
   box.innerHTML = html;
   box.querySelectorAll(".match[data-match-id]").forEach(card=>{
@@ -1047,9 +1023,9 @@ function playerRow(p){
   return `<div class="p-row"><span class="p-num">${p.num||""}</span><span>${p.name}</span>${p.note?`<span class="p-note">${p.note}</span>`:""}</div>`;
 }
 
-/* Current player lists are loaded from ESPN's match-summary rosters, not a stale
-   hand-maintained card list. The local table remains only for verified context. */
-const KNOWN_ESPN_IDS = {97:"760510",98:"760511",99:"760512",100:"760513",SF1:"760514",SF2:"760515",F:"760516"};
+/* Pre-match cards use verified local player data, so upcoming matches never
+   render as empty while ESPN has not yet published official lineups. */
+const KNOWN_ESPN_IDS = {97:"760510",98:"760511",99:"760512",100:"760513",SF1:"760514",SF2:"760515",B:"760516",F:"760517"};
 const ROSTER_CACHE = new Map();
 
 function esc(s){
@@ -1079,7 +1055,34 @@ function rosterTeamForMatch(m, teamName){
   return {side:"",name:teamName||""};
 }
 
+function staticTeamIntel(teamName){
+  const info = PLAYER_INTEL.find(x=>x.players?.some(group=>group.team===teamName));
+  if(!info) return null;
+  const group = info.players.find(x=>x.team===teamName);
+  const coach = info.coaches?.find(x=>x[0]===teamName)?.[1] || "待定";
+  const kit = info.kits?.find(x=>x.startsWith(teamName+"：")) || `${teamName}：待定`;
+  return {team:teamName, kit, coach, players:group?.list||[]};
+}
+
+function staticRoster(m){
+  const teams = [staticTeamIntel(m.a.n),staticTeamIntel(m.b.n)].filter(Boolean);
+  if(!teams.length) return "";
+  const kits = teams.map(x=>`<span>${esc(x.kit)}</span>`).join("");
+  const coaches = teams.map(x=>`<div class="sq-title">${esc(x.team)} 教练：${esc(x.coach)}</div>`).join("");
+  const players = teams.map(x=>
+    `<div class="sq-title">${esc(x.team)} 重点球员</div>${x.players.map(playerRow).join("")}`
+  ).join("");
+  const context = PLAYER_INTEL.find(x=>String(x.id)===String(m.id))?.h2h;
+  const links = PLAYER_LINKS.map(l=>`<a href="${l.href}" target="_blank" rel="noopener">${l.label}</a>`).join("");
+  return `<div class="kit-line">${kits}</div>${coaches}${players}${context?`<div class="h2h">${context}</div>`:""}<div class="intel-links">${links}</div>`;
+}
+
 async function loadRoster(m, target){
+  const verified = staticRoster(m);
+  if(verified){
+    target.innerHTML = verified;
+    return;
+  }
   const eventId = m.espnId || KNOWN_ESPN_IDS[m.id];
   if(!eventId){
     target.innerHTML = `<div class="detail-empty">\u6b63\u5728\u7b49\u5f85 ESPN \u767c\u5e03\u9019\u5834\u7684\u6bd4\u8cfd\u540d\u55ae\u3002</div>`;
@@ -1123,7 +1126,7 @@ function renderPlayers(){
   const cards = currentPlayerMatches();
   box.innerHTML = cards.map(m=>{
     const pinned = m.status==="live";
-    return `<details class="intel ${pinned?"pin":""}" data-roster-match="${m.id}" ${pinned?"open":""}>
+    return `<details class="intel ${pinned?"pin":""}" data-roster-match="${m.id}" open>
       <summary>
         <span class="sum">
           <span>${m.a.f} ${m.a.n} vs ${m.b.f} ${m.b.n}${pinned?`<span class="pin-tag">LIVE</span>`:""}</span>
@@ -1131,11 +1134,11 @@ function renderPlayers(){
         </span>
         <span class="arr">&#9654;</span>
       </summary>
-      <div class="body"><div class="detail-empty">\u6253\u958b\u5f8c\u8f09\u5165\u672c\u5834\u7684\u5b98\u65b9\u540d\u55ae\u3002</div></div>
+      <div class="body"><div class="detail-empty">正在整理本场球员资料。</div></div>
     </details>`;
   }).join("");
   box.querySelectorAll("details[data-roster-match]").forEach(el=>{
-    const load = ()=>{ if(el.open) loadRoster(getMatchById(Number(el.dataset.rosterMatch)),el.querySelector(".body")); };
+    const load = ()=>{ if(el.open) loadRoster(getMatchById(el.dataset.rosterMatch),el.querySelector(".body")); };
     el.addEventListener("toggle",load);
     load();
   });
@@ -1323,17 +1326,20 @@ function delayNotice(status){
   return `赛前提示：${raw}`;
 }
 
+function promoteTeam(targetId, side, team){
+  const target = ALL_MATCHES().find(q=>q.id===targetId);
+  if(target && team && team.en){
+    target[side] = {f:team.f, n:team.n, en:team.en, s:target[side].s??null};
+    if(target.a.en && target.b.en) target.tbd = false;
+  }
+}
+
 function promoteWinner(m){
   if(m.status!=="done" || !m.win) return;
-  const slot = PROMOTE[m.id];
-  if(!slot) return;
-  const [targetId, side] = slot;
-  const qf = ALL_MATCHES().find(q=>q.id===targetId);
-  const w = m[m.win];
-  if(qf && w && w.en){
-    qf[side] = {f:w.f, n:w.n, en:w.en, s:qf[side].s??null};
-    if(qf.a.en && qf.b.en) qf.tbd = false;
-  }
+  const winnerSlot = PROMOTE[m.id];
+  if(winnerSlot) promoteTeam(winnerSlot[0], winnerSlot[1], m[m.win]);
+  const loserSlot = PROMOTE_LOSER[m.id];
+  if(loserSlot) promoteTeam(loserSlot[0], loserSlot[1], m[m.win==="a"?"b":"a"]);
 }
 
 function promoteAll(){
