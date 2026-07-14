@@ -684,9 +684,9 @@ async function buildTimeline(m){
 }
 
 const LATER = [
-  {id:"SF1", name:"半决赛①", utc:"2026-07-15T00:00:00Z", venue:"达拉斯", desc:"97胜者 vs 98胜者",
+  {id:"SF1", name:"半决赛①", utc:"2026-07-14T19:00:00Z", venue:"达拉斯", desc:"97胜者 vs 98胜者",
    a:{f:"❔",n:"97胜者",s:null}, b:{f:"❔",n:"98胜者",s:null}, win:null, status:"wait", tbd:true, note:""},
-  {id:"SF2", name:"半决赛②", utc:"2026-07-16T00:00:00Z", venue:"亚特兰大", desc:"99胜者 vs 100胜者",
+  {id:"SF2", name:"半决赛②", utc:"2026-07-15T19:00:00Z", venue:"亚特兰大", desc:"99胜者 vs 100胜者",
    a:{f:"❔",n:"99胜者",s:null}, b:{f:"❔",n:"100胜者",s:null}, win:null, status:"wait", tbd:true, note:""},
   {id:"F", name:"决赛", utc:"2026-07-19T19:00:00Z", venue:"新泽西 · 大都会人寿球场", desc:"7月19日 冠军之夜", final:true,
    a:{f:"❔",n:"半决赛①胜者",s:null}, b:{f:"❔",n:"半决赛②胜者",s:null}, win:null, status:"wait", tbd:true, note:""},
@@ -1049,7 +1049,7 @@ function playerRow(p){
 
 /* Current player lists are loaded from ESPN's match-summary rosters, not a stale
    hand-maintained card list. The local table remains only for verified context. */
-const KNOWN_ESPN_IDS = {97:"760510",98:"760511",99:"760512",100:"760513"};
+const KNOWN_ESPN_IDS = {97:"760510",98:"760511",99:"760512",100:"760513",SF1:"760514",SF2:"760515",F:"760516"};
 const ROSTER_CACHE = new Map();
 
 function esc(s){
@@ -1057,8 +1057,10 @@ function esc(s){
 }
 
 function currentPlayerMatches(){
-  const now = Date.now();
-  return QF.filter(m=>m.status!=="done" || now-new Date(m.utc)<72*3600*1000)
+  /* Only show the current unresolved round with two confirmed teams. This prevents
+     finished quarter-finals from masking the upcoming semi-final/final rosters. */
+  return ALL_MATCHES()
+    .filter(m=>m.status!=="done" && m.a.en && m.b.en)
     .sort((a,b)=>statusRank(a.status)-statusRank(b.status) || new Date(a.utc)-new Date(b.utc));
 }
 
@@ -1361,6 +1363,8 @@ async function refreshScores(){
         if(!ca || !cb || ca===cb) continue;
         /* 已确认完场的赛果不能被 ESPN 的延迟/缺页 pre 或 in 响应冲掉。 */
         if(m.status === "done" && state !== "post") continue;
+        /* ESPN is the source of truth for confirmed start times as well as scores. */
+        if(ev.date) m.utc = ev.date;
         /* 命中：更新比分 */
         if(ca.score!==undefined && ca.score!==null) m.a.s = parseInt(ca.score);
         if(cb.score!==undefined && cb.score!==null) m.b.s = parseInt(cb.score);
